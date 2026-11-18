@@ -181,7 +181,7 @@
 
           <!-- Auth Button -->
           <div id="authContainer">
-            <button onclick="openLoginModal()" id="btnLogin"
+            <button onclick="openLoginModal(event)" id="btnLogin"
               class="inline-flex items-center space-x-2 px-4 py-2 sm:py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-md shadow-brand-500/30 hover:from-brand-700 hover:to-brand-600 transition-all active:scale-95">
               <i data-lucide="lock" class="w-4 h-4"></i>
               <span>Login Guru / BK</span>
@@ -1016,8 +1016,7 @@
 
   <!-- ================= MODAL LOGIN GURU / BK ================= -->
   <div id="modalLogin" onclick="if (event.target === this) closeLoginModal()"
-    class="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden"
-    style="display: none;">
+    class="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div
       class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 relative transition-all animate-in fade-in zoom-in-95">
       <button type="button" onclick="closeLoginModal()" class="absolute right-5 top-5 text-slate-400 hover:text-slate-600 p-1 rounded-lg">
@@ -1031,6 +1030,10 @@
         </div>
         <h3 class="text-xl font-black text-slate-800">Login Guru & Staf</h3>
         <p class="text-xs text-slate-500">Masuk untuk mencatat poin dan mengelola bimbingan siswa.</p>
+      </div>
+
+      <!-- Pesan Kesalahan / Validasi Login -->
+      <div id="loginErrorMessage" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700 text-center">
       </div>
 
       <form id="formLogin" onsubmit="handleLoginSubmit(event)" class="space-y-4">
@@ -1464,13 +1467,14 @@
   <!-- ================= JAVASCRIPT LOGIC ================= -->
   <script>
     // Fallback Pengaman Library Lucide Icons agar tidak terjadi error script
-    if (typeof window.lucide === 'undefined') {
-      window.lucide = { createIcons: function () { } };
-    }
+    var lucide = window.lucide || { createIcons: function () { } };
+    window.lucide = lucide;
     function safeCreateIcons() {
-      if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
-        try { lucide.createIcons(); } catch (e) { }
-      }
+      try {
+        if (typeof window.lucide !== 'undefined' && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      } catch (e) { }
     }
 
     // Global Application State
@@ -1496,15 +1500,24 @@
     const isAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
 
     function bootstrapApp() {
-      safeCreateIcons();
-      initApp();
-
-      // Listener langsung untuk tombol Login agar 100% responsif di Google Apps Script iframe
+      // 1. Pasang listener tombol Login terlebih dahulu agar selalu responsif
       const btnLogin = document.getElementById('btnLogin');
       if (btnLogin) {
-        btnLogin.addEventListener('click', (ev) => {
+        btnLogin.onclick = function (ev) {
           openLoginModal(ev);
-        });
+        };
+      }
+
+      // 2. Inisialisasi ikon
+      try {
+        safeCreateIcons();
+      } catch (e) { }
+
+      // 3. Inisialisasi state aplikasi
+      try {
+        initApp();
+      } catch (err) {
+        console.error('Error initApp:', err);
       }
     }
 
@@ -1628,7 +1641,7 @@
         localStorage.setItem('epoin_last_view', viewName);
       } catch (e) { }
 
-      lucide.createIcons();
+      safeCreateIcons();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1660,7 +1673,7 @@
         localStorage.setItem('epoin_last_tab', tabName);
       } catch (e) { }
 
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function capitalize(str) {
@@ -1731,7 +1744,7 @@
             <p class="text-xs text-slate-500">Pastikan ejaan nama, NISN, atau NIS sudah benar.</p>
           </div>
         `;
-        lucide.createIcons();
+        safeCreateIcons();
         return;
       }
 
@@ -1770,7 +1783,7 @@
         container.appendChild(card);
       });
 
-      lucide.createIcons();
+      safeCreateIcons();
       area.scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -1922,188 +1935,150 @@
       if (e) {
         try { e.preventDefault(); e.stopPropagation(); } catch (err) { }
       }
-
-      Swal.fire({
-        title: 'Login Petugas & Guru BK',
-        html: `
-          <div class="text-left space-y-3 p-1">
-            <div class="text-center mb-3">
-              <div class="w-12 h-12 rounded-2xl bg-sky-50 text-brand-600 border border-sky-100 flex items-center justify-center mx-auto mb-2 text-xl shadow-sm">
-                🔐
-              </div>
-              <p class="text-xs text-slate-500">Masuk untuk mencatat poin dan mengelola bimbingan siswa</p>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Username</label>
-              <input type="text" id="swalLoginUser" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-brand-500 transition-all" placeholder="Contoh: admin, bk1, piket" autocomplete="username">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
-              <input type="password" id="swalLoginPass" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-brand-500 transition-all" placeholder="Password akun" autocomplete="current-password">
-            </div>
-          </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Masuk Sistem',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0284c7',
-        cancelButtonColor: '#94a3b8',
-        reverseButtons: true,
-        focusConfirm: false,
-        didOpen: () => {
-          const u = document.getElementById('swalLoginUser');
-          if (u) u.focus();
-          const p = document.getElementById('swalLoginPass');
-          if (p) {
-            p.addEventListener('keydown', (ev) => {
-              if (ev.key === 'Enter') Swal.clickConfirm();
-            });
-          }
-        },
-        preConfirm: () => {
-          const u = (document.getElementById('swalLoginUser')?.value || '').trim();
-          const p = (document.getElementById('swalLoginPass')?.value || '').trim();
-          if (!u || !p) {
-            Swal.showValidationMessage('Username dan Password wajib diisi.');
-            return false;
-          }
-          return { u, p };
+      const modal = document.getElementById('modalLogin');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        modal.style.zIndex = '99999';
+        const errBox = document.getElementById('loginErrorMessage');
+        if (errBox) errBox.classList.add('hidden');
+        const uInput = document.getElementById('loginUsername');
+        if (uInput) {
+          setTimeout(function () { uInput.focus(); }, 80);
         }
-      }).then(res => {
-        if (res.isConfirmed && res.value) {
-          processLogin(res.value.u, res.value.p);
-        }
-      });
+      }
+      safeCreateIcons();
     }
+    window.openLoginModal = openLoginModal;
 
     function closeLoginModal() {
-      // Compatibility helper
-      Swal.close();
+      const modal = document.getElementById('modalLogin');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
     }
+    window.closeLoginModal = closeLoginModal;
 
-    function processLogin(u, p) {
-      Swal.fire({
-        title: 'Memverifikasi Akun...',
-        text: 'Mohon tunggu sebentar...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
+    function handleLoginSubmit(e) {
+      if (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (err) { }
+      }
+      const uInput = document.getElementById('loginUsername');
+      const pInput = document.getElementById('loginPassword');
+      const u = (uInput ? uInput.value : '').trim();
+      const p = (pInput ? pInput.value : '').trim();
+      const errBox = document.getElementById('loginErrorMessage');
+      const btn = document.getElementById('btnLoginSubmit');
+
+      if (!u || !p) {
+        if (errBox) {
+          errBox.textContent = 'Username dan Password wajib diisi.';
+          errBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (errBox) errBox.classList.add('hidden');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1.5">⏳</span><span>Memverifikasi...</span>';
+      }
+
+      function handleSuccess(user) {
+        AppState.currentUser = user;
+        try {
+          localStorage.setItem('epoin_user', JSON.stringify(user));
+          localStorage.setItem('epoin_last_view', 'dashboardAdmin');
+        } catch (ex) { }
+        renderUserBadge();
+        closeLoginModal();
+        if (uInput) uInput.value = '';
+        if (pInput) pInput.value = '';
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>Masuk Sistem</span><i data-lucide="arrow-right" class="w-4 h-4"></i>';
+        }
+        switchView('dashboardAdmin');
+        safeCreateIcons();
+
+        if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Login Berhasil',
+            text: `Selamat datang, ${user.nama}!`,
+            timer: 1500,
+            showConfirmButton: false
+          });
+        }
+      }
+
+      function handleFailure(msg) {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>Masuk Sistem</span><i data-lucide="arrow-right" class="w-4 h-4"></i>';
+        }
+        if (errBox) {
+          errBox.textContent = msg || 'Username atau Password salah.';
+          errBox.classList.remove('hidden');
+        } else {
+          alert(msg || 'Username atau Password salah.');
+        }
+        safeCreateIcons();
+      }
 
       if (isAppsScript) {
         google.script.run
           .withSuccessHandler(res => {
             if (res && res.success) {
-              AppState.currentUser = res.user;
-              try {
-                localStorage.setItem('epoin_user', JSON.stringify(res.user));
-                localStorage.setItem('epoin_last_view', 'dashboardAdmin');
-              } catch (ex) { }
-              renderUserBadge();
-              switchView('dashboardAdmin');
-              Swal.fire({
-                icon: 'success',
-                title: 'Login Berhasil',
-                text: `Selamat datang, ${res.user.nama}!`,
-                timer: 1500,
-                showConfirmButton: false
-              });
+              handleSuccess(res.user);
             } else {
-              Swal.fire({
-                icon: 'error',
-                title: 'Gagal Masuk',
-                text: (res && res.message) ? res.message : 'Username atau Password salah.',
-                confirmButtonColor: '#0284c7'
-              });
+              handleFailure((res && res.message) ? res.message : 'Username atau Password salah.');
             }
           })
           .withFailureHandler(err => {
-            Swal.fire('Error', 'Gagal memverifikasi akun: ' + (err.message || err.toString()), 'error');
+            handleFailure('Gagal memverifikasi akun: ' + (err.message || err.toString()));
           })
           .loginUser(u, p);
       } else {
-        // Mode Vercel / Eksternal: Coba verifikasi via /api/sync
+        // Mode Vercel / Eksternal
         fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'loginUser', data: { username: u, password: p } })
         })
-        .then(r => r.json())
-        .then(res => {
-          if (res && res.success && res.user) {
-            AppState.currentUser = res.user;
-            try {
-              localStorage.setItem('epoin_user', JSON.stringify(res.user));
-              localStorage.setItem('epoin_last_view', 'dashboardAdmin');
-            } catch (ex) { }
-            renderUserBadge();
-            switchView('dashboardAdmin');
-            Swal.fire({
-              icon: 'success',
-              title: 'Login Berhasil',
-              text: `Selamat datang, ${res.user.nama}!`,
-              timer: 1500,
-              showConfirmButton: false
-            });
-          } else if ((u === 'admin' && (p === 'Admin420212' || p === 'admin123')) || p === '#NesaratasJuara1' || p === '*NesaratasJuara1') {
-            const mockUser = {
-              username: u,
-              nama: u === 'admin' ? 'Administrator Sistem' : 'Guru Petugas',
-              role: u === 'admin' ? 'Admin' : 'Guru BK',
-              status: 'Aktif'
-            };
-            AppState.currentUser = mockUser;
-            try {
-              localStorage.setItem('epoin_user', JSON.stringify(mockUser));
-              localStorage.setItem('epoin_last_view', 'dashboardAdmin');
-            } catch (ex) { }
-            renderUserBadge();
-            switchView('dashboardAdmin');
-            Swal.fire({
-              icon: 'success',
-              title: 'Login Berhasil',
-              text: `Selamat datang, ${mockUser.nama}!`,
-              timer: 1500,
-              showConfirmButton: false
-            });
-          } else {
-            Swal.fire('Gagal Masuk', (res && res.message) ? res.message : 'Username atau Password salah.', 'error');
-          }
-        })
-        .catch(() => {
-          if ((u === 'admin' && (p === 'Admin420212' || p === 'admin123')) || p === '#NesaratasJuara1' || p === '*NesaratasJuara1') {
-            const mockUser = {
-              username: u,
-              nama: u === 'admin' ? 'Administrator Sistem' : 'Guru Petugas',
-              role: u === 'admin' ? 'Admin' : 'Guru BK',
-              status: 'Aktif'
-            };
-            AppState.currentUser = mockUser;
-            try {
-              localStorage.setItem('epoin_user', JSON.stringify(mockUser));
-              localStorage.setItem('epoin_last_view', 'dashboardAdmin');
-            } catch (ex) { }
-            renderUserBadge();
-            switchView('dashboardAdmin');
-            Swal.fire({
-              icon: 'success',
-              title: 'Login Berhasil',
-              text: `Selamat datang, ${mockUser.nama}!`,
-              timer: 1500,
-              showConfirmButton: false
-            });
-          } else {
-            Swal.fire('Gagal Masuk', 'Username atau Password salah.', 'error');
-          }
-        });
+          .then(r => r.json())
+          .then(res => {
+            if (res && res.success && res.user) {
+              handleSuccess(res.user);
+            } else if ((u === 'admin' && (p === 'Admin420212' || p === 'admin123')) || p === '#NesaratasJuara1' || p === '*NesaratasJuara1') {
+              const mockUser = {
+                username: u,
+                nama: u === 'admin' ? 'Administrator Sistem' : 'Guru Petugas',
+                role: u === 'admin' ? 'Admin' : 'Guru BK',
+                status: 'Aktif'
+              };
+              handleSuccess(mockUser);
+            } else {
+              handleFailure((res && res.message) ? res.message : 'Username atau Password salah.');
+            }
+          })
+          .catch(() => {
+            if ((u === 'admin' && (p === 'Admin420212' || p === 'admin123')) || p === '#NesaratasJuara1' || p === '*NesaratasJuara1') {
+              const mockUser = {
+                username: u,
+                nama: u === 'admin' ? 'Administrator Sistem' : 'Guru Petugas',
+                role: u === 'admin' ? 'Admin' : 'Guru BK',
+                status: 'Aktif'
+              };
+              handleSuccess(mockUser);
+            } else {
+              handleFailure('Gagal menghubungi server verifikasi login.');
+            }
+          });
       }
     }
-
-    function handleLoginSubmit(e) {
-      if (e) e.preventDefault();
-      const u = (document.getElementById('loginUsername')?.value || '').trim();
-      const p = (document.getElementById('loginPassword')?.value || '').trim();
-      processLogin(u, p);
-    }
+    window.handleLoginSubmit = handleLoginSubmit;
 
     function renderUserBadge() {
       const btnLogin = document.getElementById('btnLogin');
@@ -2126,26 +2101,32 @@
     }
 
     function handleLogout() {
-      Swal.fire({
-        title: 'Konfirmasi Keluar',
-        text: 'Apakah Anda ingin keluar dari akun petugas?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Keluar',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0284c7'
-      }).then(res => {
-        if (res.isConfirmed) {
-          AppState.currentUser = null;
-          try {
-            localStorage.removeItem('epoin_user');
-            localStorage.removeItem('epoin_last_view');
-            localStorage.removeItem('epoin_last_tab');
-          } catch (e) { }
-          renderUserBadge();
-          switchView('publicSearch');
-        }
-      });
+      function doLogout() {
+        AppState.currentUser = null;
+        try {
+          localStorage.removeItem('epoin_user');
+          localStorage.removeItem('epoin_last_view');
+          localStorage.removeItem('epoin_last_tab');
+        } catch (e) { }
+        renderUserBadge();
+        switchView('publicSearch');
+      }
+
+      if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+        Swal.fire({
+          title: 'Konfirmasi Keluar',
+          text: 'Apakah Anda ingin keluar dari akun petugas?',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Keluar',
+          cancelButtonText: 'Batal',
+          confirmButtonColor: '#0284c7'
+        }).then(res => {
+          if (res.isConfirmed) doLogout();
+        });
+      } else {
+        doLogout();
+      }
     }
 
     /**
@@ -2238,7 +2219,7 @@
 
       // Inisialisasi Charts
       renderCharts(d);
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     /**
@@ -2292,7 +2273,7 @@
         }
       });
 
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     let chartBulananInstance = null;
@@ -2509,7 +2490,7 @@
       setTimeout(() => {
         document.getElementById('modalSearchAturanInput').focus();
       }, 100);
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function closeModalCariAturan() {
@@ -2571,7 +2552,7 @@
             <p class="text-[11px]">Coba gunakan kata kunci lain (misal: seragam, upacara, juara, sholat).</p>
           </div>
         `;
-        lucide.createIcons();
+        safeCreateIcons();
         return;
       }
 
@@ -2599,7 +2580,7 @@
         `;
         container.appendChild(itemEl);
       });
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function selectAturanFromModal(id) {
@@ -2661,7 +2642,7 @@
       document.getElementById('selectedSiswaInitial').textContent = s.nama.charAt(0);
       document.getElementById('selectedSiswaName').textContent = s.nama;
       document.getElementById('selectedSiswaInfo').textContent = `Kelas ${s.kelas} • NISN: ${s.nisn}${s.nis ? ` • NIS: ${s.nis}` : ''}`;
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function clearSelectedSiswa() {
@@ -2888,7 +2869,7 @@
         `;
         tbody.appendChild(tr);
       });
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function quickInputForSiswa(nisn) {
@@ -2995,7 +2976,7 @@
         `;
         tbody.appendChild(tr);
       });
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     /**
@@ -3068,7 +3049,7 @@
       document.getElementById('editLogGuru').value = logItem.guru || '';
 
       document.getElementById('modalEditLog').classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function closeModalEditLog() {
@@ -3413,14 +3394,14 @@
 
       // Tampilkan Modal
       document.getElementById('modalEditSiswa').classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
 
       // 2. Jika terhubung ke Apps Script, tarik seluruh riwayat transaksi siswa dari sheet LOG_POIN
       if (isAppsScript) {
         if (initialLogs.length === 0) {
           const tbody = document.getElementById('tbodyEditSiswaLogs');
           tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400"><div class="flex items-center justify-center space-x-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-brand-600"></i><span>Memuat riwayat transaksi dari spreadsheet...</span></div></td></tr>';
-          lucide.createIcons();
+          safeCreateIcons();
         }
 
         google.script.run
@@ -3501,7 +3482,7 @@
         `;
         tbody.appendChild(tr);
       });
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     /**
@@ -3531,7 +3512,7 @@
         btnData.className = "pb-2.5 px-4 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors flex items-center space-x-1.5";
         btnLogs.className = "pb-2.5 px-4 text-xs font-bold border-b-2 border-brand-600 text-brand-600 transition-colors flex items-center space-x-1.5";
       }
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
 
@@ -3677,7 +3658,7 @@
 
       // Buka Modal Preview
       document.getElementById('modalPrintRekapPreview').classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     /**
@@ -3945,7 +3926,7 @@
       document.getElementById('previewRekapSummaryCount').textContent = filtered.length + ' Transaksi';
       document.getElementById('printAreaRekap').innerHTML = docHtml;
       document.getElementById('modalPrintRekapPreview').classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
   
 
