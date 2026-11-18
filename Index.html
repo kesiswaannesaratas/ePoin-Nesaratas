@@ -165,11 +165,18 @@
 
         <!-- Right Action Button (Login / User Info) -->
         <div class="flex items-center space-x-2 sm:space-x-3">
-          <!-- Public Tab Toggle -->
+          <!-- Navigation Toggles -->
           <button onclick="switchView('publicSearch')" id="btnNavPublic"
-            class="hidden sm:inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all text-brand-700 bg-brand-50 hover:bg-brand-100">
+            class="inline-flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-brand-700 bg-brand-50 hover:bg-brand-100">
             <i data-lucide="search" class="w-4 h-4"></i>
-            <span>Cek Poin Siswa</span>
+            <span>Cek Poin</span>
+          </button>
+
+          <!-- Dashboard Admin Button (Muncul jika sedang login) -->
+          <button onclick="switchView('dashboardAdmin')" id="btnNavDashboard"
+            class="hidden inline-flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-brand-600 hover:bg-slate-100">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span>Dashboard</span>
           </button>
 
           <!-- Auth Button -->
@@ -181,8 +188,8 @@
             </button>
 
             <!-- User Dropdown (Shown when logged in) -->
-            <div id="userProfileBadge"
-              class="hidden flex items-center space-x-3 bg-brand-50 border border-brand-200/60 rounded-xl px-3 py-1.5">
+            <div id="userProfileBadge" onclick="switchView('dashboardAdmin')" title="Buka Dashboard Admin"
+              class="hidden flex items-center space-x-3 bg-brand-50 border border-brand-200/60 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-brand-100/80 transition-all">
               <div
                 class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm"
                 id="userAvatarText">
@@ -192,7 +199,7 @@
                 <p class="text-xs font-bold text-slate-800 leading-tight" id="userNameLabel">Nama Guru</p>
                 <p class="text-[10px] text-brand-600 font-semibold" id="userRoleLabel">Guru Piket</p>
               </div>
-              <button onclick="handleLogout()" title="Keluar Akun"
+              <button onclick="event.stopPropagation(); handleLogout()" title="Keluar Akun"
                 class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                 <i data-lucide="log-out" class="w-4 h-4"></i>
               </button>
@@ -1486,13 +1493,35 @@
      * Inisialisasi Aplikasi
      */
     function initApp() {
-      // Periksa session di localStorage jika ada
-      const savedUser = localStorage.getItem('epoin_user');
-      if (savedUser) {
-        try {
+      // 1. Periksa session di localStorage jika ada
+      let hasSavedUser = false;
+      try {
+        const savedUser = localStorage.getItem('epoin_user');
+        if (savedUser) {
           AppState.currentUser = JSON.parse(savedUser);
           renderUserBadge();
-        } catch (e) { }
+          hasSavedUser = true;
+        }
+      } catch (e) { }
+
+      // 2. Tentukan view dan tab yang harus dibuka saat refresh (agar posisi tetap bertahan)
+      let targetView = 'publicSearch';
+      let targetTab = 'overview';
+      try {
+        const savedView = localStorage.getItem('epoin_last_view');
+        const savedTab = localStorage.getItem('epoin_last_tab');
+        if (hasSavedUser) {
+          targetView = (savedView && savedView !== 'siswaDetail') ? savedView : 'dashboardAdmin';
+          targetTab = savedTab || 'overview';
+        } else {
+          targetView = 'publicSearch';
+        }
+      } catch (e) { }
+
+      // Buka view dan tab tersimpan
+      switchView(targetView);
+      if (targetView === 'dashboardAdmin') {
+        switchAdminTab(targetTab);
       }
 
       // Set default tanggal kejadian ke hari ini
@@ -1545,6 +1574,34 @@
       } else if (viewName === 'dashboardAdmin') {
         document.getElementById('viewDashboardAdmin').classList.remove('hidden');
       }
+
+      // Update styling tombol navigasi di header
+      const btnPublic = document.getElementById('btnNavPublic');
+      const btnDash = document.getElementById('btnNavDashboard');
+      if (btnPublic) {
+        if (viewName === 'publicSearch') {
+          btnPublic.classList.add('text-brand-700', 'bg-brand-50');
+          btnPublic.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        } else {
+          btnPublic.classList.remove('text-brand-700', 'bg-brand-50');
+          btnPublic.classList.add('text-slate-600', 'hover:bg-slate-100');
+        }
+      }
+      if (btnDash) {
+        if (viewName === 'dashboardAdmin') {
+          btnDash.classList.add('bg-brand-600', 'text-white', 'shadow-sm');
+          btnDash.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        } else {
+          btnDash.classList.remove('bg-brand-600', 'text-white', 'shadow-sm');
+          btnDash.classList.add('text-slate-600', 'hover:bg-slate-100');
+        }
+      }
+
+      // Simpan view terakhir ke localStorage agar tidak reset saat refresh
+      try {
+        localStorage.setItem('epoin_last_view', viewName);
+      } catch (e) { }
+
       lucide.createIcons();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1571,6 +1628,12 @@
         activeBtn.classList.remove('text-slate-600', 'hover:text-brand-600', 'hover:bg-slate-100');
         activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow-sm');
       }
+
+      // Simpan tab terakhir ke localStorage agar tidak reset saat refresh
+      try {
+        localStorage.setItem('epoin_last_tab', tabName);
+      } catch (e) { }
+
       lucide.createIcons();
     }
 
@@ -1900,16 +1963,22 @@
     }
 
     function renderUserBadge() {
+      const btnLogin = document.getElementById('btnLogin');
+      const badge = document.getElementById('userProfileBadge');
+      const btnNavDash = document.getElementById('btnNavDashboard');
+
       if (AppState.currentUser) {
-        document.getElementById('btnLogin').classList.add('hidden');
-        document.getElementById('userProfileBadge').classList.remove('hidden');
+        if (btnLogin) btnLogin.classList.add('hidden');
+        if (badge) badge.classList.remove('hidden');
+        if (btnNavDash) btnNavDash.classList.remove('hidden');
         document.getElementById('userNameLabel').textContent = AppState.currentUser.nama;
         document.getElementById('userRoleLabel').textContent = AppState.currentUser.role;
-        document.getElementById('userAvatarText').textContent = AppState.currentUser.nama.charAt(0);
+        document.getElementById('userAvatarText').textContent = (AppState.currentUser.nama || 'U').charAt(0).toUpperCase();
         document.getElementById('inputGuruPelapor').value = AppState.currentUser.nama;
       } else {
-        document.getElementById('btnLogin').classList.remove('hidden');
-        document.getElementById('userProfileBadge').classList.add('hidden');
+        if (btnLogin) btnLogin.classList.remove('hidden');
+        if (badge) badge.classList.add('hidden');
+        if (btnNavDash) btnNavDash.classList.add('hidden');
       }
     }
 
@@ -1925,7 +1994,11 @@
       }).then(res => {
         if (res.isConfirmed) {
           AppState.currentUser = null;
-          localStorage.removeItem('epoin_user');
+          try {
+            localStorage.removeItem('epoin_user');
+            localStorage.removeItem('epoin_last_view');
+            localStorage.removeItem('epoin_last_tab');
+          } catch (e) { }
           renderUserBadge();
           switchView('publicSearch');
         }
