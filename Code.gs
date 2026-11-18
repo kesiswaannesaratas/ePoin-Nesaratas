@@ -26,6 +26,45 @@ function doGet(e) {
 }
 
 /**
+ * Entry point HTTP POST: Melayani sinkronisasi data dari Vercel / External Webhook
+ */
+function doPost(e) {
+  try {
+    const rawContent = (e && e.postData) ? e.postData.contents : '';
+    let body = {};
+    if (rawContent) {
+      try { body = JSON.parse(rawContent); } catch (ex) { body = {}; }
+    }
+    const action = body.action || (e && e.parameter ? e.parameter.action : '');
+    const data = body.data || body;
+
+    let result = { success: false, message: 'Action tidak dikenal: ' + action };
+
+    if (action === 'submitLogPoin') {
+      result = submitLogPoin(data);
+    } else if (action === 'updateSiswa') {
+      result = updateSiswa(data);
+    } else if (action === 'updateLogPoin') {
+      result = updateLogPoin(data);
+    } else if (action === 'deleteLogPoin') {
+      result = deleteLogPoin(data.rowNumber, data.id);
+    } else if (action === 'getDashboardData') {
+      result = { success: true, data: getDashboardData() };
+    } else if (action === 'getSiswaList') {
+      result = { success: true, data: getSiswaList(data.kelas || 'Semua', data.query || '') };
+    } else if (action === 'getSiswaDetail') {
+      result = { success: true, data: getSiswaDetail(data.nisn || data.query || '') };
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
  * Mengambil Pengaturan Aplikasi dari Sheet PENGATURAN
  */
 function getAppConfig() {

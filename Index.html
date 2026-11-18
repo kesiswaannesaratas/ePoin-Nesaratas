@@ -2528,9 +2528,42 @@
           })
           .submitLogPoin(payload);
       } else {
-        setTimeout(() => {
+        // Mode Vercel / Eksternal: Kirim sinkronisasi ke /api/sync
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submitLogPoin', data: payload })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Tersimpan & Sinkron!',
+              text: res.message || `Poin ${jenis} berhasil dicatat ke Google Spreadsheet.`,
+              confirmButtonColor: '#0284c7'
+            });
+            clearSelectedSiswa();
+            document.getElementById('inputKeterangan').value = '';
+            selectAturan.selectedIndex = 0;
+            onSelectAturanChange();
+            setTanggalKejadianHariIni();
+            loadLiveSpreadsheetData();
+          } else {
+            Swal.fire({
+              icon: res && res.isConfigWarning ? 'info' : 'success',
+              title: res && res.isConfigWarning ? 'Tersimpan Sementara' : 'Tersimpan (Mode Preview)',
+              text: res && res.isConfigWarning ? res.message : `Poin ${jenis} dicatat untuk ${nama} (${bobot} poin).`,
+              confirmButtonColor: '#0284c7'
+            });
+            clearSelectedSiswa();
+            document.getElementById('inputKeterangan').value = '';
+            setTanggalKejadianHariIni();
+          }
+        })
+        .catch(err => {
           Swal.fire({
-            icon: 'success',
+            icon: 'info',
             title: 'Tersimpan (Mode Preview)',
             text: `Poin ${jenis} berhasil dicatat untuk ${nama} (${bobot} poin).`,
             confirmButtonColor: '#0284c7'
@@ -2538,7 +2571,7 @@
           clearSelectedSiswa();
           document.getElementById('inputKeterangan').value = '';
           setTanggalKejadianHariIni();
-        }, 500);
+        });
       }
     }
 
@@ -2928,30 +2961,28 @@
           })
           .updateLogPoin(payload);
       } else {
-        // Mode offline preview
-        setTimeout(() => {
+        // Mode Vercel / Eksternal: Kirim ke /api/sync
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'updateLogPoin', data: payload })
+        })
+        .then(r => r.json())
+        .then(res => {
           closeModalEditLog();
-          if (AppState.dashboard && AppState.dashboard.recentLogs) {
-            const item = AppState.dashboard.recentLogs.find(l => (id && l.id === id) || (rowNumber && l.rowNumber === rowNumber));
-            if (item) {
-              item.tanggal = tanggal;
-              item.jenis = jenis.toLowerCase();
-              item.idAturan = idAturan;
-              item.namaAturan = namaAturan;
-              item.poin = poin;
-              item.keterangan = keterangan;
-              item.guru = guruPelapor;
-            }
-            renderAdminLogTable(AppState.dashboard.recentLogs);
-          }
           Swal.fire({
             icon: 'success',
-            title: 'Berhasil Diperbarui (Preview)',
-            text: 'Data transaksi poin berhasil diperbarui.',
-            timer: 1500,
+            title: res && res.success ? 'Berhasil & Sinkron!' : 'Berhasil Diperbarui',
+            text: res && res.message ? res.message : 'Data transaksi poin berhasil diperbarui.',
+            timer: 1600,
             showConfirmButton: false
           });
-        }, 400);
+          loadLiveSpreadsheetData();
+        })
+        .catch(() => {
+          closeModalEditLog();
+          loadLiveSpreadsheetData();
+        });
       }
     }
 
@@ -3026,20 +3057,26 @@
               })
               .deleteLogPoin(payload);
           } else {
-            // Mode preview lokal / offline
-            setTimeout(() => {
-              if (AppState.dashboard && AppState.dashboard.recentLogs) {
-                AppState.dashboard.recentLogs = AppState.dashboard.recentLogs.filter(l => l.rowNumber !== rowNumber && l.id !== id);
-                renderAdminLogTable(AppState.dashboard.recentLogs);
-              }
+            // Mode Vercel / Eksternal: Kirim ke /api/sync
+            fetch('/api/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'deleteLogPoin', data: payload })
+            })
+            .then(r => r.json())
+            .then(res => {
               Swal.fire({
                 icon: 'success',
-                title: 'Berhasil Dihapus (Preview)',
-                text: 'Catatan transaksi poin berhasil dihapus.',
+                title: res && res.success ? 'Berhasil Dihapus & Sinkron!' : 'Berhasil Dihapus',
+                text: res && res.message ? res.message : 'Transaksi poin berhasil dihapus.',
                 timer: 1500,
                 showConfirmButton: false
               });
-            }, 400);
+              loadLiveSpreadsheetData();
+            })
+            .catch(() => {
+              loadLiveSpreadsheetData();
+            });
           }
         }
       });
@@ -3354,8 +3391,14 @@
           })
           .updateSiswa(payload);
       } else {
-        // Mode offline preview browser
-        setTimeout(() => {
+        // Mode Vercel / Eksternal: Kirim sinkronisasi ke /api/sync
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'updateSiswa', data: payload })
+        })
+        .then(r => r.json())
+        .then(res => {
           const idx = (AppState.siswaList || []).findIndex(s => 
             (payload.originalNisn && String(s.nisn) === String(payload.originalNisn)) ||
             (payload.originalNis && String(s.nis) === String(payload.originalNis))
@@ -3366,13 +3409,24 @@
           }
           Swal.fire({
             icon: 'success',
-            title: 'Berhasil (Demo)',
-            text: 'Data siswa berhasil diperbarui secara lokal.',
-            timer: 1500,
+            title: res && res.success ? 'Berhasil & Sinkron!' : 'Berhasil Diperbarui',
+            text: res && res.message ? res.message : 'Data siswa berhasil diperbarui.',
+            timer: 1600,
             showConfirmButton: false
           });
           closeModalEditSiswa();
-        }, 500);
+        })
+        .catch(() => {
+          const idx = (AppState.siswaList || []).findIndex(s => 
+            (payload.originalNisn && String(s.nisn) === String(payload.originalNisn)) ||
+            (payload.originalNis && String(s.nis) === String(payload.originalNis))
+          );
+          if (idx !== -1) {
+            Object.assign(AppState.siswaList[idx], payload);
+            filterAdminSiswaTable();
+          }
+          closeModalEditSiswa();
+        });
       }
     }
 
