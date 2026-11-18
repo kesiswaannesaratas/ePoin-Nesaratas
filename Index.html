@@ -1495,10 +1495,25 @@
     // Check if running in Google Apps Script or Standalone Preview
     const isAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function bootstrapApp() {
       safeCreateIcons();
       initApp();
-    });
+
+      // Listener langsung untuk tombol Login agar 100% responsif di Google Apps Script iframe
+      const btnLogin = document.getElementById('btnLogin');
+      if (btnLogin) {
+        btnLogin.addEventListener('click', (ev) => {
+          openLoginModal(ev);
+        });
+      }
+    }
+
+    // Jalankan segera jika document sudah siap (mengatasi iframe timing bug di Apps Script)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrapApp);
+    } else {
+      bootstrapApp();
+    }
 
     /**
      * Inisialisasi Aplikasi
@@ -1901,71 +1916,88 @@
     }
 
     /**
-     * Otentikasi & Modal Login
+     * Otentikasi & Modal Login Petugas / Guru BK
      */
-    function openLoginModal() {
-      const modal = document.getElementById('modalLogin');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-        modal.style.zIndex = '9999';
+    function openLoginModal(e) {
+      if (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (err) { }
       }
-      setTimeout(() => {
-        const u = document.getElementById('loginUsername');
-        if (u) {
-          u.focus();
-          u.select();
+
+      Swal.fire({
+        title: 'Login Petugas & Guru BK',
+        html: `
+          <div class="text-left space-y-3 p-1">
+            <div class="text-center mb-3">
+              <div class="w-12 h-12 rounded-2xl bg-sky-50 text-brand-600 border border-sky-100 flex items-center justify-center mx-auto mb-2 text-xl shadow-sm">
+                🔐
+              </div>
+              <p class="text-xs text-slate-500">Masuk untuk mencatat poin dan mengelola bimbingan siswa</p>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Username</label>
+              <input type="text" id="swalLoginUser" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-brand-500 transition-all" placeholder="Contoh: admin, bk1, piket" autocomplete="username">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
+              <input type="password" id="swalLoginPass" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-brand-500 transition-all" placeholder="Password akun" autocomplete="current-password">
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Masuk Sistem',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0284c7',
+        cancelButtonColor: '#94a3b8',
+        reverseButtons: true,
+        focusConfirm: false,
+        didOpen: () => {
+          const u = document.getElementById('swalLoginUser');
+          if (u) u.focus();
+          const p = document.getElementById('swalLoginPass');
+          if (p) {
+            p.addEventListener('keydown', (ev) => {
+              if (ev.key === 'Enter') Swal.clickConfirm();
+            });
+          }
+        },
+        preConfirm: () => {
+          const u = (document.getElementById('swalLoginUser')?.value || '').trim();
+          const p = (document.getElementById('swalLoginPass')?.value || '').trim();
+          if (!u || !p) {
+            Swal.showValidationMessage('Username dan Password wajib diisi.');
+            return false;
+          }
+          return { u, p };
         }
-      }, 50);
-      safeCreateIcons();
+      }).then(res => {
+        if (res.isConfirmed && res.value) {
+          processLogin(res.value.u, res.value.p);
+        }
+      });
     }
 
     function closeLoginModal() {
-      const modal = document.getElementById('modalLogin');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-      }
+      // Compatibility helper
+      Swal.close();
     }
 
-    function handleLoginSubmit(e) {
-      if (e) e.preventDefault();
-      const uInput = document.getElementById('loginUsername');
-      const pInput = document.getElementById('loginPassword');
-      const u = uInput ? uInput.value.trim() : '';
-      const p = pInput ? pInput.value.trim() : '';
-
-      if (!u || !p) {
-        Swal.fire('Perhatian', 'Username dan Password wajib diisi.', 'warning');
-        return;
-      }
-
-      const btn = document.getElementById('btnLoginSubmit');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Memverifikasi...</span>`;
-        safeCreateIcons();
-      }
-
-      const resetBtn = () => {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = `<span>Masuk Sistem</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-          safeCreateIcons();
-        }
-      };
+    function processLogin(u, p) {
+      Swal.fire({
+        title: 'Memverifikasi Akun...',
+        text: 'Mohon tunggu sebentar...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
 
       if (isAppsScript) {
         google.script.run
           .withSuccessHandler(res => {
-            resetBtn();
             if (res && res.success) {
               AppState.currentUser = res.user;
               try {
                 localStorage.setItem('epoin_user', JSON.stringify(res.user));
                 localStorage.setItem('epoin_last_view', 'dashboardAdmin');
               } catch (ex) { }
-              closeLoginModal();
               renderUserBadge();
               switchView('dashboardAdmin');
               Swal.fire({
@@ -1976,11 +2008,15 @@
                 showConfirmButton: false
               });
             } else {
-              Swal.fire('Gagal Masuk', (res && res.message) ? res.message : 'Username atau Password salah.', 'error');
+              Swal.fire({
+                icon: 'error',
+                title: 'Gagal Masuk',
+                text: (res && res.message) ? res.message : 'Username atau Password salah.',
+                confirmButtonColor: '#0284c7'
+              });
             }
           })
           .withFailureHandler(err => {
-            resetBtn();
             Swal.fire('Error', 'Gagal memverifikasi akun: ' + (err.message || err.toString()), 'error');
           })
           .loginUser(u, p);
@@ -1993,14 +2029,12 @@
         })
         .then(r => r.json())
         .then(res => {
-          resetBtn();
           if (res && res.success && res.user) {
             AppState.currentUser = res.user;
             try {
               localStorage.setItem('epoin_user', JSON.stringify(res.user));
               localStorage.setItem('epoin_last_view', 'dashboardAdmin');
             } catch (ex) { }
-            closeLoginModal();
             renderUserBadge();
             switchView('dashboardAdmin');
             Swal.fire({
@@ -2022,7 +2056,6 @@
               localStorage.setItem('epoin_user', JSON.stringify(mockUser));
               localStorage.setItem('epoin_last_view', 'dashboardAdmin');
             } catch (ex) { }
-            closeLoginModal();
             renderUserBadge();
             switchView('dashboardAdmin');
             Swal.fire({
@@ -2036,8 +2069,7 @@
             Swal.fire('Gagal Masuk', (res && res.message) ? res.message : 'Username atau Password salah.', 'error');
           }
         })
-        .catch(err => {
-          resetBtn();
+        .catch(() => {
           if ((u === 'admin' && (p === 'Admin420212' || p === 'admin123')) || p === '#NesaratasJuara1' || p === '*NesaratasJuara1') {
             const mockUser = {
               username: u,
@@ -2050,14 +2082,27 @@
               localStorage.setItem('epoin_user', JSON.stringify(mockUser));
               localStorage.setItem('epoin_last_view', 'dashboardAdmin');
             } catch (ex) { }
-            closeLoginModal();
             renderUserBadge();
             switchView('dashboardAdmin');
+            Swal.fire({
+              icon: 'success',
+              title: 'Login Berhasil',
+              text: `Selamat datang, ${mockUser.nama}!`,
+              timer: 1500,
+              showConfirmButton: false
+            });
           } else {
             Swal.fire('Gagal Masuk', 'Username atau Password salah.', 'error');
           }
         });
       }
+    }
+
+    function handleLoginSubmit(e) {
+      if (e) e.preventDefault();
+      const u = (document.getElementById('loginUsername')?.value || '').trim();
+      const p = (document.getElementById('loginPassword')?.value || '').trim();
+      processLogin(u, p);
     }
 
     function renderUserBadge() {
