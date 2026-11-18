@@ -1,0 +1,19 @@
+# Dependencies & Temporary Files
+node_modules/
+.vscode/
+scratch/
+*.log
+*.tmp
+test_csv_parser.js
+generate_seed.js
+
+# System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.gsheet
+
+# Backup duplicates
+Backup Code Index/
+Salinan *.html
+Salinan *.gs
