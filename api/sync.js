@@ -1,5 +1,5 @@
 // Vercel Serverless Function: Forward create/update/delete operations to Google Apps Script Web App
-const DEFAULT_APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || '';
+const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyEwLw7qm3YINFoXBY2IzD263Sr9reCIX3Q4qG5DSyY9xz-w4SnhLttZWhhm6FlGYiD/exec';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
